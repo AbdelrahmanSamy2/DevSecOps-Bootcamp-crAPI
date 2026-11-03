@@ -39,3 +39,36 @@ jobs:
         run: |
           echo "Gitleaks detected potential secrets. See the gitleaks-report artifact for details."
           exit 1
+
+  sast-scan:
+    name: Static Analysis (Semgrep)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Run Semgrep
+        id: semgrep
+        uses: docker://docker.io/semgrep/semgrep:latest
+        continue-on-error: true
+        with:
+          args: >
+            semgrep scan
+            --config=auto
+            --sarif
+            --output=semgrep-report.sarif
+            --verbose
+
+      - name: Upload Semgrep report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: semgrep-report
+          path: semgrep-report.sarif
+          retention-days: 30
+
+      - name: Fail job if findings were detected
+        if: steps.semgrep.outcome == 'failure'
+        run: |
+          echo "Semgrep detected findings. See the semgrep-report artifact for details."
+          exit 1
