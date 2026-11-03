@@ -14,6 +14,28 @@ jobs:
           fetch-depth: 0
 
       - name: Run Gitleaks
-        uses: gitleaks/gitleaks-action@v2
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        id: gitleaks
+        uses: docker://docker.io/zricethezav/gitleaks:latest
+        continue-on-error: true
+        with:
+          args: >
+            detect
+            --source=.
+            --report-format=sarif
+            --report-path=gitleaks-report.sarif
+            --redact
+            --verbose
+
+      - name: Upload Gitleaks report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: gitleaks-report
+          path: gitleaks-report.sarif
+          retention-days: 30
+
+      - name: Fail job if secrets were found
+        if: steps.gitleaks.outcome == 'failure'
+        run: |
+          echo "Gitleaks detected potential secrets. See the gitleaks-report artifact for details."
+          exit 1
