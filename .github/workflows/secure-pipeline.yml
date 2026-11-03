@@ -72,3 +72,38 @@ jobs:
         run: |
           echo "Semgrep detected findings. See the semgrep-report artifact for details."
           exit 1
+
+  sca-scan:
+    name: Dependency Scanning (Trivy)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Run Trivy
+        id: trivy
+        uses: docker://docker.io/aquasec/trivy:latest
+        continue-on-error: true
+        with:
+          args: >
+            fs
+            --scanners=vuln
+            --severity=CRITICAL,HIGH,MEDIUM
+            --format=sarif
+            --output=trivy-report.sarif
+            --exit-code=1
+            .
+
+      - name: Upload Trivy report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: trivy-report
+          path: trivy-report.sarif
+          retention-days: 30
+
+      - name: Fail job if vulnerabilities were detected
+        if: steps.trivy.outcome == 'failure'
+        run: |
+          echo "Trivy detected vulnerable dependencies. See the trivy-report artifact for details."
+          exit 1
