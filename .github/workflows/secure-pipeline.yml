@@ -107,3 +107,36 @@ jobs:
         run: |
           echo "Trivy detected vulnerable dependencies. See the trivy-report artifact for details."
           exit 1
+
+  dockerfile-scan:
+    name: Dockerfile Scanning (Checkov)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Run Checkov
+        id: checkov
+        uses: docker://docker.io/bridgecrew/checkov:latest
+        continue-on-error: true
+        with:
+          args: >
+            --directory .
+            --framework dockerfile
+            --output sarif
+            --output-file-path .
+            --compact
+
+      - name: Upload Checkov report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: checkov-report
+          path: results_sarif.sarif
+          retention-days: 30
+
+      - name: Fail job if misconfigurations were detected
+        if: steps.checkov.outcome == 'failure'
+        run: |
+          echo "Checkov detected Dockerfile misconfigurations. See the checkov-report artifact for details."
+          exit 1
